@@ -88,6 +88,24 @@ variable "daily_report_schedule" {
   default     = "cron(0 9 * * ? *)" # 9 AM UTC daily
 }
 
+variable "create_hosted_zone" {
+  description = "Create a new Route53 hosted zone (set to false if using existing zone)"
+  type        = bool
+  default     = false
+}
+
+variable "domain_name" {
+  description = "Custom domain name for frontend (leave empty to skip Route53 setup)"
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_id" {
+  description = "Route53 hosted zone ID for the domain (required if domain_name is set and create_hosted_zone is false)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)

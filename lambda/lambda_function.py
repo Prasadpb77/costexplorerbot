@@ -8,7 +8,7 @@ from botocore.exceptions import ClientError
 ce_client = boto3.client('ce')
 bedrock_region = os.environ.get('BEDROCK_REGION', 'us-east-1')
 bedrock_runtime = boto3.client('bedrock-runtime', region_name=bedrock_region)
-MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'amazon.nova-premier-v1:0')
 
 def get_cost_and_usage(start_date, end_date, granularity='DAILY', metrics=['UnblendedCost'], group_by=None):
     """Fetch cost and usage data from AWS Cost Explorer"""

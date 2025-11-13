@@ -1,63 +1,69 @@
-# AWS Cost Analysis Agent - Terraform Deployment
+# AWS Cost Analysis Agent
 
-An intelligent AWS cost analysis tool powered by Amazon Bedrock (Claude) that helps you understand and optimize your AWS spending through natural language conversations.
+An intelligent AWS cost analysis tool with a web interface, powered by Amazon Bedrock (Claude) that helps you understand and optimize your AWS spending through natural language conversations.
+
+## 🎯 Features
+
+- 💬 **Interactive Web Interface** - Beautiful chat-based UI hosted on S3
+- 🤖 **AI-Powered Analysis** - Uses Amazon Bedrock (Claude) for intelligent insights
+- 📊 **Real-time Cost Data** - Fetches actual AWS spending from Cost Explorer
+- 🔒 **Secure API** - Optional API key authentication
+- ⚡ **Serverless** - Lambda + API Gateway + S3 hosting
+- 🌐 **Custom Domain** - Optional Route53 integration
+- 📱 **Responsive Design** - Works on desktop and mobile
 
 ## 🏗️ Architecture
 
 ```
-User → API Gateway → Lambda Function → AWS Cost Explorer API
-                          ↓
-                    Bedrock (Claude)
-                          ↓
-                    Cost Insights & Recommendations
+User Browser → S3 Static Website (Custom Domain via Route53)
+                     ↓
+              API Gateway → Lambda → Cost Explorer API
+                                          ↓
+                                    Bedrock (Claude)
 ```
 
 ## 📋 Prerequisites
 
-Before deploying, ensure you have:
+Before deploying:
 
-- [x] AWS Account with administrator access
-- [x] [Terraform](https://www.terraform.io/downloads) >= 1.0 installed
-- [x] AWS CLI configured (`aws configure`)
-- [x] **Cost Explorer enabled** (wait 24 hours for initial data)
-- [x] **Bedrock model access enabled** (Claude 3.5 Sonnet)
+1. **Terraform** >= 1.0 installed
+2. **AWS CLI** configured with credentials
+3. **Cost Explorer** enabled (wait 24 hours for initial data)
+4. **Bedrock model access** enabled (Claude 3.5 Sonnet)
+5. **Route53 Hosted Zone** (optional, if using custom domain)
 
 ### Enable Cost Explorer
 
 ```bash
-# Check if Cost Explorer is accessible
+# Check if accessible
 aws ce get-cost-and-usage \
   --time-period Start=$(date -d '7 days ago' +%Y-%m-%d),End=$(date +%Y-%m-%d) \
   --granularity DAILY \
   --metrics UnblendedCost
 
 # If error, enable via AWS Console:
-# Console → Cost Management → Cost Explorer → Enable Cost Explorer
+# Console → Cost Management → Cost Explorer → Enable
 ```
 
 ### Enable Bedrock Model Access
 
 1. Go to AWS Console → Amazon Bedrock
-2. Navigate to "Model access" in left sidebar
-3. Click "Manage model access"
-4. Select **"Claude 3.5 Sonnet v2"**
-5. Click "Request model access"
-6. Wait for approval (usually instant)
+2. Click "Model access" → "Manage model access"
+3. Select **"Claude 3.5 Sonnet v2"**
+4. Click "Request model access"
 
-## 📁 Project Structure
+### Get Route53 Zone ID (Optional)
 
-```
-aws-cost-analysis-agent/
-├── main.tf                      # Main Terraform configuration
-├── variables.tf                 # Variable definitions
-├── outputs.tf                   # Output definitions
-├── terraform.tfvars.example     # Example variables file
-├── lambda/
-│   └── lambda_function.py       # Lambda function code
-└── README.md                    # This file
+If you want to use a custom domain:
+
+```bash
+# List your hosted zones
+aws route53 list-hosted-zones --query 'HostedZones[*].[Name,Id]' --output table
+
+# Copy the Zone ID for your domain
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Deployment
 
 ### Step 1: Clone and Setup
 
@@ -66,515 +72,486 @@ aws-cost-analysis-agent/
 mkdir aws-cost-analysis-agent
 cd aws-cost-analysis-agent
 
-# Create the Lambda directory
-mkdir lambda
-
-# Copy all Terraform files (main.tf, variables.tf, outputs.tf)
-# Copy lambda_function.py to lambda/ directory
+# Create required directories
+mkdir frontend lambda
 ```
 
-### Step 2: Configure Variables
+### Step 2: Create Files
 
-```bash
-# Copy example variables file
-cp terraform.tfvars.example terraform.tfvars
+Copy these files into your project:
 
-# Edit terraform.tfvars with your preferences
-nano terraform.tfvars
+```
+aws-cost-analysis-agent/
+├── frontend/
+│   └── index.html              # Web interface
+├── lambda/
+│   └── lambda_function.py      # Lambda function
+├── main.tf                     # Main infrastructure
+├── s3-hosting.tf               # S3 + Route53
+├── variables.tf                # Variables
+├── outputs.tf                  # Outputs
+├── terraform.tfvars            # Your config (create this)
+└── README.md                   # This file
 ```
 
-**Key Configuration Options:**
+### Step 3: Configure
 
+Create `terraform.tfvars`:
+
+**Option A: Without Custom Domain (S3 URL only)**
 ```hcl
 # Basic Configuration
-aws_region     = "us-east-1"
-project_name   = "aws-cost-analysis-agent"
-environment    = "prod"
+aws_region   = "us-east-1"
+project_name = "aws-cost-agent"
+environment  = "prod"
 
-# API Security (optional)
-enable_api_key = true  # Require API key for requests
+# Bedrock
+bedrock_model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+bedrock_region   = "us-east-1"
 
-# Daily Reports (optional)
-enable_daily_reports  = true
-daily_report_schedule = "cron(0 9 * * ? *)"  # 9 AM UTC
+# Leave domain settings empty
+domain_name      = ""
+route53_zone_id  = ""
 
-# SNS Alerts (optional)
-enable_sns_alerts = true
-alert_email       = "your-email@example.com"
+# Security
+enable_api_key = false  # Set true for production
+
+# Optional Features
+enable_sns_alerts    = false
+enable_daily_reports = false
 ```
 
-### Step 3: Deploy with Terraform
+**Option B: With Custom Domain (Route53)**
+```hcl
+# Basic Configuration
+aws_region   = "us-east-1"
+project_name = "aws-cost-agent"
+environment  = "prod"
+
+# Bedrock
+bedrock_model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+bedrock_region   = "us-east-1"
+
+# Custom Domain
+domain_name      = "cost-analyzer.yourdomain.com"
+route53_zone_id  = "Z1234567890ABC"
+
+# Security
+enable_api_key = false
+
+# Optional Features
+enable_sns_alerts    = false
+enable_daily_reports = false
+```
+
+### Step 4: Deploy
 
 ```bash
-# Initialize Terraform
+# Initialize
 terraform init
 
-# Review planned changes
+# Preview
 terraform plan
 
-# Deploy infrastructure
+# Deploy
 terraform apply
-
-# Confirm with: yes
 ```
 
-### Step 4: Test the Deployment
-
-After deployment, Terraform will output test commands:
+### Step 5: Access Your Application
 
 ```bash
-# Test Lambda directly
-aws lambda invoke \
-  --function-name aws-cost-analysis-agent-function \
-  --payload '{"body":"{\"query\":\"What are my top spending services?\"}"}' \
-  response.json && cat response.json
+# Get the frontend URL
+terraform output frontend_access_url
 
-# Test via API Gateway
-curl -X POST https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/prod/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What are my top spending services?"}'
-
-# If API key enabled:
-curl -X POST https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/prod/analyze \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR-API-KEY" \
-  -d '{"query": "What are my top spending services?"}'
-
-# View logs
-aws logs tail /aws/lambda/aws-cost-analysis-agent-function --follow
+# Get the API endpoint (for frontend config)
+terraform output api_gateway_url
 ```
 
-## 📊 Features
+## 🖥️ Using the Web Interface
 
-### 1. **Natural Language Queries**
+1. **Open the frontend URL** from Terraform outputs
+2. **Click "⚙️ API Configuration"** at the top
+3. **Enter your API Gateway URL** from outputs
+4. **Enter API Key** if you enabled it (optional)
+5. **Start chatting!** Ask questions about your AWS costs
 
-Ask questions in plain English:
-- "What are my top 5 spending services this month?"
+### Example Queries
+
+- "What are my top 5 spending services?"
 - "Show me my daily costs for the last week"
 - "What's my cost forecast for next month?"
 - "How can I reduce my EC2 costs?"
-- "Compare costs from last week to this week"
+- "Which service costs the most?"
 
-### 2. **AI-Powered Insights**
+## 🌐 Custom Domain Setup
 
-Claude analyzes your AWS spending and provides:
-- Detailed service breakdown
-- Cost trends and anomalies
-- Optimization recommendations
-- Budget predictions
+### Prerequisites
+- Domain registered in Route53 (or external with Route53 hosted zone)
+- Hosted zone already created
 
-### 3. **Flexible Deployment Options**
+### Configuration Steps
 
-Choose what features you need:
-
-| Feature | Variable | Default | Description |
-|---------|----------|---------|-------------|
-| API Key Auth | `enable_api_key` | false | Require API key for requests |
-| Daily Reports | `enable_daily_reports` | false | Automated daily cost summaries |
-| SNS Alerts | `enable_sns_alerts` | false | Email notifications for anomalies |
-
-## 🔧 Configuration Options
-
-### API Gateway Settings
-
-```hcl
-# Rate limiting
-api_quota_limit = 1000  # Requests per day
-api_burst_limit = 100   # Burst requests
-api_rate_limit  = 50    # Requests per second
-```
-
-### Bedrock Model Selection
-
-```hcl
-# Choose your model (in terraform.tfvars)
-bedrock_model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"  # Recommended
-
-# Other options:
-# "anthropic.claude-3-sonnet-20240229-v1:0"
-# "anthropic.claude-3-haiku-20240307-v1:0"
-```
-
-### CloudWatch Logs Retention
-
-```hcl
-log_retention_days = 7  # Keep logs for 7 days
-```
-
-### Daily Reports Schedule
-
-```hcl
-# Cron expressions (UTC time)
-daily_report_schedule = "cron(0 9 * * ? *)"   # 9 AM UTC daily
-daily_report_schedule = "cron(0 17 * * ? *)"  # 5 PM UTC daily
-daily_report_schedule = "cron(0 0 * * MON *)" # Monday midnight
-```
-
-## 📖 Usage Examples
-
-### Example 1: Cost Analysis
-
+1. **Find your Zone ID**:
 ```bash
-curl -X POST $API_ENDPOINT \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What are my AWS costs today?"}'
+aws route53 list-hosted-zones \
+  --query 'HostedZones[*].[Name,Id]' \
+  --output table
 ```
 
-**Response:**
-```json
-{
-  "query": "What are my AWS costs today?",
-  "response": "Based on your AWS cost data for today:\n\nYour total spending so far is $127.45, broken down as follows:\n\n1. **Amazon EC2**: $78.32 - Your primary compute costs\n2. **Amazon S3**: $23.18 - Storage costs\n3. **Amazon RDS**: $15.67 - Database services\n4. **AWS Lambda**: $10.28 - Serverless compute\n\nCompared to yesterday ($115.23), you're tracking 10.6% higher...",
-  "timestamp": "2025-01-15T14:30:22.123456",
-  "model": "anthropic.claude-3-5-sonnet-20241022-v2:0"
-}
-```
-
-### Example 2: Cost Optimization
-
-```bash
-curl -X POST $API_ENDPOINT \
-  -H "Content-Type: application/json" \
-  -d '{"query": "How can I reduce my costs?"}'
-```
-
-### Example 3: Service-Specific Query
-
-```bash
-curl -X POST $API_ENDPOINT \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Show me only my S3 costs and suggest optimizations"}'
-```
-
-## 🔒 Security Best Practices
-
-### 1. Enable API Key Authentication
-
+2. **Update terraform.tfvars**:
 ```hcl
-# In terraform.tfvars
+domain_name      = "cost-analyzer.yourdomain.com"
+route53_zone_id  = "Z1234567890ABC"  # Your zone ID
+```
+
+3. **Deploy**:
+```bash
+terraform apply
+```
+
+4. **Access via custom domain**:
+```
+http://cost-analyzer.yourdomain.com
+```
+
+### Important Notes
+
+- **HTTP Only**: S3 static website hosting only supports HTTP
+- **For HTTPS**: You would need CloudFront (not included in this simple setup)
+- **DNS Propagation**: May take 5-10 minutes for Route53 changes
+- **Subdomain**: Works best with subdomains (e.g., cost.example.com)
+
+## 🔐 Security
+
+### Production Setup
+
+For production environments:
+
+1. **Enable API Key**:
+```hcl
 enable_api_key = true
 ```
 
-Then retrieve the API key:
 ```bash
-terraform output -raw api_key
+terraform apply
+terraform output -raw api_key  # Save this securely
 ```
 
-### 2. Restrict API Access with AWS WAF (Optional)
-
-Add WAF rules to your API Gateway:
+2. **Restrict S3 Bucket Access** (Optional):
+For stricter security, you can add IP restrictions:
 
 ```hcl
-resource "aws_wafv2_web_acl" "api_waf" {
-  name  = "${var.project_name}-waf"
-  scope = "REGIONAL"
-  
-  default_action {
-    allow {}
+# Add to s3-hosting.tf bucket policy
+"Condition": {
+  "IpAddress": {
+    "aws:SourceIp": [
+      "YOUR_OFFICE_IP/32",
+      "YOUR_VPN_IP/32"
+    ]
   }
+}
+```
+
+3. **Use API Gateway Resource Policy** (Optional):
+Restrict API access by IP or VPC:
+
+```hcl
+resource "aws_api_gateway_rest_api_policy" "cost_api" {
+  rest_api_id = aws_api_gateway_rest_api.cost_api.id
   
-  rule {
-    name     = "RateLimitRule"
-    priority = 1
-    
-    action {
-      block {}
-    }
-    
-    statement {
-      rate_based_statement {
-        limit              = 2000
-        aggregate_key_type = "IP"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = "*"
+        Action = "execute-api:Invoke"
+        Resource = "*"
+        Condition = {
+          IpAddress = {
+            "aws:SourceIp": ["YOUR_IP/32"]
+          }
+        }
       }
-    }
-    
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name               = "RateLimitRule"
-      sampled_requests_enabled  = true
-    }
-  }
-  
-  visibility_config {
-    cloudwatch_metrics_enabled = true
-    metric_name               = "${var.project_name}-waf"
-    sampled_requests_enabled  = true
-  }
+    ]
+  })
 }
 ```
 
-### 3. Use VPC Endpoints for Private Access
+### CORS Configuration
+
+CORS is automatically configured in `s3-hosting.tf` to allow:
+- POST and OPTIONS methods
+- Content-Type and X-Api-Key headers
+- All origins (*)
+
+For production, restrict origins in the CORS configuration.
+
+## 💰 Cost Estimation
+
+Monthly costs (approximate):
+
+| Component | Usage | Cost |
+|-----------|-------|------|
+| S3 Hosting | 1GB storage + 10K requests | ~$0.05 |
+| Lambda | 1,000 invocations | ~$0.20 |
+| API Gateway | 1,000 requests | ~$3.50 |
+| Cost Explorer API | 30 requests | ~$0.30 |
+| Bedrock (Claude) | ~100K tokens | ~$0.30 |
+| Route53 | Hosted zone + queries | ~$0.50 |
+| **Total** | | **~$4.85/month** |
+
+## 🔧 Configuration Options
+
+### Essential Variables
 
 ```hcl
-resource "aws_vpc_endpoint" "bedrock" {
-  vpc_id            = var.vpc_id
-  service_name      = "com.amazonaws.us-east-1.bedrock-runtime"
-  vpc_endpoint_type = "Interface"
-  
-  subnet_ids = var.private_subnet_ids
-  
-  security_group_ids = [aws_security_group.bedrock_endpoint.id]
-}
+aws_region   = "us-east-1"      # AWS region
+project_name = "aws-cost-agent"  # Resource prefix
+environment  = "prod"            # Environment name
 ```
 
-### 4. Enable X-Ray Tracing
+### Custom Domain
 
-X-Ray is already enabled in the Terraform configuration for API Gateway. To view traces:
-
-```bash
-# View service map
-aws xray get-service-graph --start-time $(date -d '1 hour ago' +%s) --end-time $(date +%s)
+```hcl
+domain_name      = "cost.example.com"  # Your domain
+route53_zone_id  = "Z123ABC"           # Route53 zone ID
 ```
 
-## 📈 Monitoring & Logging
+### Security Options
 
-### View Lambda Logs
+```hcl
+enable_api_key = true  # Require API key
+```
+
+### Logging
+
+```hcl
+log_retention_days = 7  # CloudWatch logs retention
+```
+
+### Optional Features
+
+```hcl
+enable_sns_alerts    = true
+alert_email          = "your-email@example.com"
+enable_daily_reports = true
+```
+
+## 🔄 Updates
+
+### Update Frontend
 
 ```bash
-# Real-time logs
-aws logs tail /aws/lambda/aws-cost-analysis-agent-function --follow
+# Edit frontend/index.html
+nano frontend/index.html
 
-# Last hour
-aws logs tail /aws/lambda/aws-cost-analysis-agent-function --since 1h
+# Apply changes
+terraform apply
+```
 
-# Search for errors
-aws logs filter-log-events \
-  --log-group-name /aws/lambda/aws-cost-analysis-agent-function \
-  --filter-pattern "ERROR"
+### Update Lambda
+
+```bash
+# Edit lambda/lambda_function.py
+nano lambda/lambda_function.py
+
+# Apply changes
+terraform apply
+```
+
+### Change Domain
+
+```bash
+# Edit terraform.tfvars
+nano terraform.tfvars
+
+# Apply changes
+terraform apply
+```
+
+## 📊 Monitoring
+
+### View Logs
+
+```bash
+# Lambda logs
+aws logs tail /aws/lambda/aws-cost-agent-function --follow
+
+# API Gateway logs
+aws logs tail /aws/apigateway/aws-cost-agent --follow
 ```
 
 ### CloudWatch Metrics
 
-Key metrics to monitor:
+Monitor in AWS Console:
+- Lambda invocations and errors
+- API Gateway requests and latency
+- S3 bucket metrics
+- Route53 query counts
 
-- **Lambda Invocations**: `AWS/Lambda - Invocations`
-- **Lambda Errors**: `AWS/Lambda - Errors`
-- **Lambda Duration**: `AWS/Lambda - Duration`
-- **API Gateway Requests**: `AWS/ApiGateway - Count`
-- **API Gateway Latency**: `AWS/ApiGateway - Latency`
+## 🐛 Troubleshooting
 
-### Create CloudWatch Dashboard
+### Frontend can't connect to API
+
+1. Check API endpoint URL in frontend config
+2. Verify CORS is enabled (check s3-hosting.tf)
+3. Check browser console for errors
+4. Verify API Gateway is deployed
 
 ```bash
-aws cloudwatch put-dashboard \
-  --dashboard-name "CostAgentMonitoring" \
-  --dashboard-body file://dashboard.json
+# Test API directly
+curl -X POST $(terraform output -raw api_gateway_url) \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}'
 ```
 
-## 💰 Cost Estimation
+### Custom domain not working
 
-### Monthly Cost Breakdown:
-
-| Service | Usage | Estimated Cost |
-|---------|-------|----------------|
-| Lambda | 1,000 invocations | ~$0.20 |
-| API Gateway | 1,000 requests | ~$3.50 |
-| Cost Explorer API | 30 requests* | ~$0.30 |
-| Bedrock (Claude) | ~100K tokens | ~$0.30 |
-| CloudWatch Logs | 1GB | ~$0.50 |
-| **Total** | | **~$4.80/month** |
-
-*First request per day is free
-
-### Cost Optimization Tips:
-
-1. **Cache Cost Explorer responses** for 1-2 hours
-2. **Use Lambda reserved concurrency** for predictable workloads
-3. **Enable S3 lifecycle policies** for logs
-4. **Set CloudWatch Logs retention** to 7 days
-5. **Use API Gateway caching** for frequently asked queries
-
-## 🔧 Troubleshooting
-
-### Issue: "Cost Explorer is not enabled"
-
-**Solution:**
+1. Wait 5-10 minutes for DNS propagation
+2. Verify Route53 record was created:
 ```bash
-# Enable via AWS Console
-# Console → Cost Management → Cost Explorer → Enable Cost Explorer
-# Wait 24 hours for initial data collection
+aws route53 list-resource-record-sets \
+  --hosted-zone-id YOUR_ZONE_ID \
+  --query "ResourceRecordSets[?Name=='your-domain.com.']"
 ```
 
-### Issue: "Access denied for Bedrock"
-
-**Solution:**
-1. Check Bedrock model access is enabled
-2. Verify IAM role has `bedrock:InvokeModel` permission
-3. Ensure correct model ID in variables
-
+3. Test DNS resolution:
 ```bash
-# Check IAM policy
-aws iam get-role-policy \
-  --role-name aws-cost-analysis-agent-lambda-role \
-  --policy-name aws-cost-analysis-agent-lambda-policy
+nslookup cost-analyzer.yourdomain.com
 ```
 
-### Issue: "No cost data available"
-
-**Possible causes:**
-- Cost Explorer needs 24 hours for initial data
-- No AWS resource usage to track
-- IAM permissions missing
-
-**Solution:**
+4. Ensure S3 bucket is public:
 ```bash
-# Verify Cost Explorer access
+aws s3api get-bucket-policy --bucket YOUR_BUCKET_NAME
+```
+
+### API returns 403 Forbidden
+
+1. If API key is enabled, make sure you've entered it in frontend
+2. Get API key: `terraform output -raw api_key`
+3. Check IAM permissions for Lambda
+
+### No cost data available
+
+1. Wait 24 hours after enabling Cost Explorer
+2. Verify Cost Explorer access:
+```bash
 aws ce get-cost-and-usage \
   --time-period Start=$(date -d '7 days ago' +%Y-%m-%d),End=$(date +%Y-%m-%d) \
   --granularity DAILY \
   --metrics UnblendedCost
 ```
 
-### Issue: Lambda timeout
+### Bedrock access denied
 
-**Solution:**
-```hcl
-# In main.tf, increase timeout
-resource "aws_lambda_function" "cost_agent" {
-  timeout = 120  # Increase from 60 to 120 seconds
-}
+1. Enable Claude model in Bedrock console
+2. Verify IAM permissions include `bedrock:InvokeModel`
+3. Check correct region (bedrock_region variable)
 
-# Apply changes
-terraform apply
-```
+## 🧹 Cleanup
 
-### Issue: API Gateway 403 Forbidden
-
-**Solution:**
-```bash
-# If API key enabled, include it in request
-curl -X POST $API_ENDPOINT \
-  -H "x-api-key: $(terraform output -raw api_key)" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "test"}'
-```
-
-## 🔄 Updates & Maintenance
-
-### Update Lambda Code
+### Remove Everything
 
 ```bash
-# Modify lambda/lambda_function.py
-# Then apply changes
-terraform apply
-```
-
-### Update Terraform Configuration
-
-```bash
-# Modify main.tf, variables.tf, etc.
-terraform plan
-terraform apply
-```
-
-### Rotate API Key
-
-```bash
-# Force recreation of API key
-terraform taint 'aws_api_gateway_api_key.api_key[0]'
-terraform apply
-
-# Get new key
-terraform output -raw api_key
-```
-
-## 🧹 Cleanup & Destruction
-
-### Remove All Resources
-
-```bash
-# Preview destruction
-terraform plan -destroy
-
 # Destroy all resources
 terraform destroy
 
 # Confirm with: yes
 ```
 
-### Partial Cleanup
+**Note**: Route53 hosted zone is NOT deleted (to prevent accidental domain issues). Delete manually if needed.
+
+### Manual Route53 Cleanup
 
 ```bash
-# Remove specific resources
-terraform destroy -target=aws_api_gateway_rest_api.cost_api
-terraform destroy -target=aws_lambda_function.cost_agent
+# List records
+aws route53 list-resource-record-sets --hosted-zone-id YOUR_ZONE_ID
+
+# Delete record (if needed)
+aws route53 change-resource-record-sets \
+  --hosted-zone-id YOUR_ZONE_ID \
+  --change-batch file://delete-record.json
 ```
 
-### Manual Cleanup (if Terraform fails)
+## 📁 Project Structure
 
-```bash
-# Delete Lambda
-aws lambda delete-function --function-name aws-cost-analysis-agent-function
-
-# Delete API Gateway
-API_ID=$(aws apigateway get-rest-apis --query 'items[?name==`aws-cost-analysis-agent-api`].id' --output text)
-aws apigateway delete-rest-api --rest-api-id $API_ID
-
-# Delete IAM role
-aws iam delete-role-policy \
-  --role-name aws-cost-analysis-agent-lambda-role \
-  --policy-name aws-cost-analysis-agent-lambda-policy
-aws iam delete-role --role-name aws-cost-analysis-agent-lambda-role
-
-# Delete CloudWatch Logs
-aws logs delete-log-group --log-group-name /aws/lambda/aws-cost-analysis-agent-function
 ```
+aws-cost-analysis-agent/
+├── frontend/
+│   └── index.html              # Chat interface
+├── lambda/
+│   └── lambda_function.py      # Cost analysis logic
+├── main.tf                     # Core infrastructure
+├── s3-hosting.tf               # S3 + Route53
+├── variables.tf                # Configuration
+├── outputs.tf                  # Deployment info
+└── terraform.tfvars            # Your settings
+```
+
+## 🎯 Essential Files Only
+
+**Required for deployment:**
+1. `main.tf` - Core infrastructure
+2. `s3-hosting.tf` - S3 + Route53
+3. `variables.tf` - Configuration options
+4. `outputs.tf` - Deployment information
+5. `lambda/lambda_function.py` - Application logic
+6. `frontend/index.html` - Web interface
+7. `terraform.tfvars` - Your settings
+
+**Optional:**
+- `README.md` - This documentation
+
+## 🚀 Next Steps
+
+After deployment:
+
+1. **Test the interface** with sample queries
+2. **Enable API key** for production
+3. **Configure custom domain** (optional)
+4. **Set up daily reports** for insights
+5. **Monitor costs** in CloudWatch
+6. **Set up alerts** for anomalies
 
 ## 📚 Additional Resources
 
-- [AWS Cost Explorer API Documentation](https://docs.aws.amazon.com/cost-management/latest/APIReference/API_Operations_AWS_Cost_Explorer_Service.html)
+- [AWS Cost Explorer API](https://docs.aws.amazon.com/cost-management/latest/APIReference/)
 - [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [Claude API Documentation](https://docs.anthropic.com/claude/reference/getting-started-with-the-api)
+- [Route53 Documentation](https://docs.aws.amazon.com/route53/)
 
-## 🤝 Contributing
+## ❓ Common Questions
 
-Contributions welcome! Feel free to:
-- Report bugs
-- Suggest features
-- Submit pull requests
-- Improve documentation
+**Q: Can I use a custom domain?**  
+A: Yes, configure domain_name and route53_zone_id in terraform.tfvars
 
-## 📝 License
+**Q: Does the custom domain support HTTPS?**  
+A: No, S3 static website hosting only supports HTTP. For HTTPS, you'd need CloudFront (not included)
 
-MIT License - free to use for personal or commercial purposes.
+**Q: How do I update the frontend?**  
+A: Edit `frontend/index.html` and run `terraform apply`
 
----
+**Q: Can I use a domain from another registrar?**  
+A: Yes, as long as you have a Route53 hosted zone for it
 
-## 🎯 Quick Reference
+**Q: How do I reduce costs?**  
+A: Reduce log retention, use API caching, optimize Lambda memory
 
-### Essential Commands
+## 📞 Support
 
-```bash
-# Deploy
-terraform init && terraform apply
-
-# Test
-terraform output test_lambda_command | bash
-
-# Monitor
-terraform output view_logs_command | bash
-
-# Update
-terraform apply
-
-# Destroy
-terraform destroy
-```
-
-### Get Outputs
-
-```bash
-# API endpoint
-terraform output api_gateway_url
-
-# API key (if enabled)
-terraform output -raw api_key
-
-# All outputs
-terraform output
-```
+For issues:
+1. Check CloudWatch Logs
+2. Review Terraform error messages
+3. Verify all prerequisites are met
+4. Test API endpoint directly
+5. Check browser console for frontend errors
+6. Verify DNS propagation for custom domain
 
 ---
 
-**Need Help?** Check the Troubleshooting section or review AWS CloudWatch Logs for detailed error messages.
+**Deployment Time:** ~5 minutes  
+**Prerequisites Setup:** 24+ hours (Cost Explorer)  
+**Estimated Monthly Cost:** ~$5
+
+🎉 **Ready to optimize your AWS costs with AI!**

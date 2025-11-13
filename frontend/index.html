@@ -1,284 +1,610 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AWS Cost Chat</title>
-  <style>
-    :root {
-      --bg: #0b1020;
-      --card: #121931;
-      --muted: #8b95b7;
-      --text: #e7eaff;
-      --primary: #6ea8fe;
-      --accent: #21d4fd;
-      --danger: #ff6b6b;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial;
-      background: radial-gradient(1200px 800px at 80% -10%, #1e2650 0%, transparent 50%), var(--bg);
-      color: var(--text);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Cost Analysis Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    .app {
-      height: 100vh; display: grid; grid-template-rows: auto 1fr auto; max-width: 920px; margin: 0 auto;
-      padding: 16px; gap: 12px;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
 
-    header {
-      display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-      border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; backdrop-filter: blur(6px);
-    }
-    .dot { width: 10px; height: 10px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
-    .title { font-weight: 700; letter-spacing: 0.2px; }
-    .env { margin-left: auto; font-size: 12px; color: var(--muted); }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            max-height: 800px;
+        }
 
-    #chat {
-      background: var(--card); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; overflow: hidden; display: grid;
-      grid-template-rows: 1fr auto; min-height: 0; box-shadow: 0 10px 24px rgba(0,0,0,.25);
-    }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
 
-    .messages {
-      padding: 16px; overflow-y: auto; scroll-behavior: smooth; scrollbar-width: thin; gap: 10px; display: flex; flex-direction: column;
-    }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
 
-    .bubble { max-width: 80%; padding: 12px 14px; border-radius: 14px; line-height: 1.4; font-size: 15px; white-space: pre-wrap; word-wrap: break-word; }
-    .user   { align-self: flex-end; background: linear-gradient(180deg, #2a3568, #1f2a5a); border: 1px solid rgba(255,255,255,0.08); }
-    .bot    { align-self: flex-start; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
 
-    .row { display: flex; align-items: center; gap: 10px; }
-    .avatar { width: 28px; height: 28px; border-radius: 999px; flex: 0 0 auto; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
-    .avatar.user { background: linear-gradient(180deg, #7aa2ff, #6a8dff); color: #091028; }
-    .avatar.bot  { background: linear-gradient(180deg, #24e0a8, #14b8a6); color: #071b16; }
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e0e0e0;
+        }
 
-    .content { padding: 10px 12px; border-radius: 12px; }
+        .config-section.collapsed {
+            display: none;
+        }
 
-    .composer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.06); background: linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.2)); }
-    .composer-inner { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-    textarea {
-      resize: none; min-height: 48px; max-height: 160px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.06); color: var(--text); outline: none; font-size: 15px; line-height: 1.35;
-    }
-    textarea::placeholder { color: var(--muted); }
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 10px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
 
-    button {
-      height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, #3b82f6, #2563eb); color: white;
-      font-weight: 600; letter-spacing: .2px; cursor: pointer; box-shadow: 0 6px 16px rgba(59,130,246,.35);
-    }
-    button:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+        .config-header:hover {
+            background: #e9ecef;
+        }
 
-    .helper { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; padding: 0 2px 8px 2px; }
-    .kbd { border: 1px solid rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 6px; font-weight: 600; font-size: 11px; color: #cfd6ff; }
+        .config-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+            display: block;
+        }
 
-    .status { font-size: 12px; color: var(--muted); padding-left: 6px; }
-    .error { color: var(--danger); }
+        .config-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
 
-    .toolbar { display: flex; gap: 8px; align-items: center; }
-    .small { font-size: 12px; color: var(--muted); }
-    .toggle { appearance: none; width: 44px; height: 26px; background: #2a335d; border-radius: 999px; position: relative; border: 1px solid rgba(255,255,255,0.12); cursor: pointer; }
-    .toggle:checked { background: #1f9cf1; }
-    .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 999px; transition: transform .18s ease; }
-    .toggle:checked::after { transform: translateX(18px); }
+        .config-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
 
-    @media (max-width: 640px) {
-      .bubble { max-width: 100%; }
-    }
-  </style>
+        .config-status {
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: #fafbfc;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 75%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .loading {
+            display: flex;
+            gap: 5px;
+            padding: 15px 20px;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .input-container {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .example-chip {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #667eea;
+            color: #667eea;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .example-chip:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        .welcome-message h2 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .welcome-message p {
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .examples {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <div class="dot"></div>
-      <div class="title">AWS Cost Chat</div>
-      <div class="env" id="envInfo"></div>
-    </header>
-
-    <section id="chat">
-      <div id="messages" class="messages" aria-live="polite" aria-label="Chat transcript"></div>
-      <div class="composer">
-        <div class="helper">
-          <span class="small">Press</span><span class="kbd">Enter</span><span class="small">to send,</span>
-          <span class="kbd">Shift + Enter</span><span class="small">for newline.</span>
-          <span class="status" id="status"></span>
+    <div class="container">
+        <div class="header">
+            <h1>💰 AWS Cost Analysis Agent</h1>
+            <p>Powered by Amazon Bedrock (Claude)</p>
         </div>
-        <div class="composer-inner">
-          <textarea id="input" placeholder="Ask: What are my AWS costs today?"></textarea>
-          <div class="toolbar">
-            <label class="small">Save chat
-              <input type="checkbox" id="persist" class="toggle" aria-label="Toggle persistence" />
-            </label>
-            <button id="sendBtn" title="Send">Send</button>
-          </div>
+
+        <div class="config-header" onclick="toggleConfig()">
+            <span style="font-weight: 600;">⚙️ API Configuration</span>
+            <span id="configToggle">▼</span>
         </div>
-      </div>
-    </section>
-  </div>
 
-  <script>
-    // ======== CONFIG ========
-    // 1) Set your deployed API Gateway URL below (no trailing slash)
-    //    Example: "https://abc123.execute-api.ap-south-1.amazonaws.com/prod"
-    const API_URL = window.localStorage.getItem('API_URL') || ""; // optionally store via console for convenience
+        <div class="config-section" id="configSection">
+            <label class="config-label">API Gateway Endpoint URL</label>
+            <input 
+                type="text" 
+                id="apiEndpoint" 
+                class="config-input" 
+                placeholder="https://your-api-id.execute-api.us-east-1.amazonaws.com/prod/analyze"
+                value="">
+            
+            <label class="config-label">API Key (Optional - leave empty if not required)</label>
+            <input 
+                type="password" 
+                id="apiKey" 
+                class="config-input" 
+                placeholder="Enter your API key if required"
+                value="">
+            
+            <div id="configStatus"></div>
+        </div>
 
-    // 2) Optionally, if your API requires a header (e.g., x-api-key), set it here.
-    const EXTRA_HEADERS = JSON.parse(window.localStorage.getItem('EXTRA_HEADERS') || '{}');
+        <div class="chat-container" id="chatContainer">
+            <div class="welcome-message">
+                <h2>Welcome to AWS Cost Analysis Agent!</h2>
+                <p>Ask me anything about your AWS costs and I'll provide detailed insights and recommendations.</p>
+                
+                <div class="examples">
+                    <div class="example-chip" onclick="sendExample('What are my top 5 spending services?')">
+                        📊 Top spending services
+                    </div>
+                    <div class="example-chip" onclick="sendExample('Show me my daily costs for the last week')">
+                        📅 Daily costs
+                    </div>
+                    <div class="example-chip" onclick="sendExample('What is my cost forecast for next month?')">
+                        🔮 Cost forecast
+                    </div>
+                    <div class="example-chip" onclick="sendExample('How can I reduce my AWS costs?')">
+                        💡 Cost optimization
+                    </div>
+                    <div class="example-chip" onclick="sendExample('Which service costs the most?')">
+                        🎯 Highest cost service
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    // ======== UTIL ========
-    const qs  = (sel, el=document) => el.querySelector(sel);
-    const qsa = (sel, el=document) => Array.from(el.querySelectorAll(sel));
-    const messagesEl = qs('#messages');
-    const inputEl    = qs('#input');
-    const sendBtn    = qs('#sendBtn');
-    const statusEl   = qs('#status');
-    const persistEl  = qs('#persist');
-    const envInfoEl  = qs('#envInfo');
+        <div class="input-container">
+            <div class="input-wrapper">
+                <input 
+                    type="text" 
+                    id="userInput" 
+                    class="input-field" 
+                    placeholder="Ask about your AWS costs..."
+                    onkeypress="handleKeyPress(event)">
+                <button class="send-button" onclick="sendMessage()" id="sendButton">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
 
-    envInfoEl.textContent = API_URL ? new URL(API_URL).host : 'API URL not set';
+    <script>
+        // Load saved configuration
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedEndpoint = localStorage.getItem('apiEndpoint');
+            const savedApiKey = localStorage.getItem('apiKey');
+            
+            if (savedEndpoint) {
+                document.getElementById('apiEndpoint').value = savedEndpoint;
+            }
+            if (savedApiKey) {
+                document.getElementById('apiKey').value = savedApiKey;
+            }
 
-    function setStatus(text, isError=false) {
-      statusEl.textContent = text || '';
-      statusEl.classList.toggle('error', !!isError);
-    }
-
-    function escapeHTML(str="") {
-      return str.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    function addMessage(role, content) {
-      const row = document.createElement('div');
-      row.className = 'row';
-
-      const avatar = document.createElement('div');
-      avatar.className = `avatar ${role === 'user' ? 'user' : 'bot'}`;
-      avatar.textContent = role === 'user' ? 'YOU' : 'AI';
-
-      const bubble = document.createElement('div');
-      bubble.className = `bubble ${role === 'user' ? 'user' : 'bot'}`;
-      bubble.innerHTML = escapeHTML(content);
-
-      row.appendChild(avatar);
-      row.appendChild(bubble);
-      messagesEl.appendChild(row);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-
-      if (persistEl.checked) saveHistory();
-    }
-
-    function saveHistory() {
-      const items = qsa('.row').map(row => {
-        const isUser = row.querySelector('.avatar').classList.contains('user');
-        const text = row.querySelector('.bubble').textContent;
-        return { role: isUser ? 'user' : 'assistant', content: text };
-      });
-      localStorage.setItem('chat_history', JSON.stringify(items));
-    }
-
-    function loadHistory() {
-      try {
-        const stored = JSON.parse(localStorage.getItem('chat_history') || '[]');
-        stored.forEach(m => addMessage(m.role === 'user' ? 'user' : 'assistant', m.content));
-      } catch(_){}
-    }
-
-    function clearComposer() {
-      inputEl.value = '';
-      inputEl.style.height = 'auto';
-    }
-
-    // Auto-grow textarea
-    inputEl.addEventListener('input', () => {
-      inputEl.style.height = 'auto';
-      inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
-      sendBtn.disabled = !inputEl.value.trim();
-    });
-
-    // Keyboard shortcuts
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendBtn.click();
-      }
-    });
-
-    // Click send
-    sendBtn.addEventListener('click', async () => {
-      const query = inputEl.value.trim();
-      if (!query) return;
-      if (!API_URL) {
-        alert('Please set API_URL in the source (or via localStorage). Open DevTools and run localStorage.setItem("API_URL", "https://your-api.execute-api.region.amazonaws.com/prod") then refresh.');
-        return;
-      }
-
-      addMessage('user', query);
-      clearComposer();
-
-      setStatus('Thinking…');
-      sendBtn.disabled = true;
-      inputEl.disabled = true;
-
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000);
-
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...EXTRA_HEADERS,
-          },
-          body: JSON.stringify({ query }),
-          signal: controller.signal,
+            // Auto-save on change
+            document.getElementById('apiEndpoint').addEventListener('change', saveConfig);
+            document.getElementById('apiKey').addEventListener('change', saveConfig);
         });
-        clearTimeout(timeout);
 
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+        function saveConfig() {
+            const endpoint = document.getElementById('apiEndpoint').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            
+            localStorage.setItem('apiEndpoint', endpoint);
+            localStorage.setItem('apiKey', apiKey);
+            
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.className = 'config-status status-success';
+            statusDiv.textContent = '✓ Configuration saved!';
+            
+            setTimeout(() => {
+                statusDiv.textContent = '';
+            }, 3000);
         }
 
-        // Expecting JSON like { answer: string } OR generic JSON -> pretty print
-        const data = await res.json().catch(() => null);
-
-        let content = '';
-        if (data && typeof data === 'object') {
-          // common shapes: {answer}, {message}, {output}, or full object
-          content = data.answer || data.message || data.output || JSON.stringify(data, null, 2);
-        } else {
-          content = await res.text();
+        function toggleConfig() {
+            const configSection = document.getElementById('configSection');
+            const toggleIcon = document.getElementById('configToggle');
+            
+            if (configSection.classList.contains('collapsed')) {
+                configSection.classList.remove('collapsed');
+                toggleIcon.textContent = '▼';
+            } else {
+                configSection.classList.add('collapsed');
+                toggleIcon.textContent = '▶';
+            }
         }
 
-        addMessage('assistant', content);
-        setStatus('');
-      } catch (err) {
-        console.error(err);
-        addMessage('assistant', `⚠️ Error: ${err.message || err}`);
-        setStatus('Request failed', true);
-      } finally {
-        sendBtn.disabled = false;
-        inputEl.disabled = false;
-        inputEl.focus();
-      }
-    });
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
 
-    // Persistence toggle
-    persistEl.checked = localStorage.getItem('chat_history') ? true : false;
-    if (persistEl.checked) loadHistory();
+        function sendExample(text) {
+            document.getElementById('userInput').value = text;
+            sendMessage();
+        }
 
-    persistEl.addEventListener('change', () => {
-      if (!persistEl.checked) {
-        localStorage.removeItem('chat_history');
-      } else {
-        saveHistory();
-      }
-    });
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
 
-    // Optional: greet
-    if (!localStorage.getItem('greeted')) {
-      addMessage('assistant', 'Hi! Ask me about your AWS costs (e.g., “What are my AWS costs today?”)');
-      localStorage.setItem('greeted', '1');
-    }
-  </script>
+            const endpoint = document.getElementById('apiEndpoint').value.trim();
+            
+            if (!endpoint) {
+                showError('Please configure your API endpoint in the settings above.');
+                return;
+            }
+
+            // Clear input
+            input.value = '';
+            
+            // Disable send button
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            
+            // Remove welcome message if exists
+            const welcomeMsg = document.querySelector('.welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.remove();
+            }
+
+            // Add user message
+            addMessage(message, 'user');
+
+            // Show loading
+            const loadingId = showLoading();
+
+            try {
+                const apiKey = document.getElementById('apiKey').value.trim();
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (apiKey) {
+                    headers['x-api-key'] = apiKey;
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        query: message
+                    })
+                });
+
+                // Remove loading
+                removeLoading(loadingId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                // Handle different response formats
+                let assistantMessage;
+                if (data.body) {
+                    const bodyData = typeof data.body === 'string' ? JSON.parse(data.body) : data.body;
+                    assistantMessage = bodyData.response || bodyData.message || 'No response received';
+                } else {
+                    assistantMessage = data.response || data.message || 'No response received';
+                }
+
+                addMessage(assistantMessage, 'assistant');
+
+            } catch (error) {
+                removeLoading(loadingId);
+                addMessage(`Error: ${error.message}. Please check your API endpoint and try again.`, 'assistant', true);
+                console.error('Error:', error);
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        function addMessage(text, sender, isError = false) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            if (isError) {
+                contentDiv.style.background = '#f8d7da';
+                contentDiv.style.color = '#721c24';
+                contentDiv.style.border = '1px solid #f5c6cb';
+            }
+            
+            // Format the message (preserve line breaks and basic formatting)
+            contentDiv.innerHTML = formatMessage(text);
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            contentDiv.appendChild(timeDiv);
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function formatMessage(text) {
+            // Convert markdown-like formatting to HTML
+            let formatted = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+                .replace(/\n/g, '<br>') // Line breaks
+                .replace(/(\d+\.\s)/g, '<br>$1'); // Numbered lists
+            
+            return formatted;
+        }
+
+        function showLoading() {
+            const chatContainer = document.getElementById('chatContainer');
+            const loadingDiv = document.createElement('div');
+            const loadingId = 'loading-' + Date.now();
+            loadingDiv.id = loadingId;
+            loadingDiv.className = 'message assistant';
+            
+            loadingDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="loading">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                </div>
+            `;
+            
+            chatContainer.appendChild(loadingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            return loadingId;
+        }
+
+        function removeLoading(loadingId) {
+            const loadingDiv = document.getElementById(loadingId);
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+
+        function showError(message) {
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.className = 'config-status status-error';
+            statusDiv.textContent = '⚠ ' + message;
+            
+            // Expand config section if collapsed
+            const configSection = document.getElementById('configSection');
+            if (configSection.classList.contains('collapsed')) {
+                toggleConfig();
+            }
+        }
+    </script>
 </body>
 </html>

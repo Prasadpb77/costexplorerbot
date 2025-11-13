@@ -80,7 +80,9 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "bedrock:InvokeModel"
         ]
         Resource = [
-          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-*"
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-*",
+          "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-text-premier-v1:0",
+          "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-premier-v1:0"
         ]
       },
       {
@@ -197,23 +199,7 @@ resource "aws_api_gateway_stage" "prod" {
   rest_api_id   = aws_api_gateway_rest_api.cost_api.id
   stage_name    = var.api_stage_name
 
-  xray_tracing_enabled = true
-
-  access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api_gateway_log_group.arn
-    format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      caller         = "$context.identity.caller"
-      user           = "$context.identity.user"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      resourcePath   = "$context.resourcePath"
-      status         = "$context.status"
-      protocol       = "$context.protocol"
-      responseLength = "$context.responseLength"
-    })
-  }
+  xray_tracing_enabled = false
 }
 
 # CloudWatch Log Group for API Gateway

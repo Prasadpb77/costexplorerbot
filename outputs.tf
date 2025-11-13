@@ -73,3 +73,48 @@ output "deployment_region" {
   description = "AWS Region where resources are deployed"
   value       = data.aws_region.current.name
 }
+
+output "frontend_s3_bucket" {
+  description = "S3 bucket name for frontend"
+  value       = aws_s3_bucket.frontend.id
+}
+
+output "frontend_website_endpoint" {
+  description = "S3 website endpoint URL"
+  value       = aws_s3_bucket_website_configuration.frontend.website_endpoint
+}
+
+output "frontend_website_url" {
+  description = "S3 website URL (HTTP)"
+  value       = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
+}
+
+output "custom_domain_url" {
+  description = "Custom domain URL (if configured)"
+  value       = var.domain_name != "" ? "http://${var.domain_name}" : "Custom domain not configured"
+}
+
+output "frontend_access_url" {
+  description = "Primary URL to access the frontend"
+  value       = var.domain_name != "" ? "http://${var.domain_name}" : "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
+}
+
+output "route53_record_created" {
+  description = "Whether Route53 record was created"
+  value       = var.domain_name != "" ? "Yes - ${var.domain_name} points to S3" : "No - using S3 website endpoint directly"
+}
+
+output "route53_zone_id" {
+  description = "Route53 Hosted Zone ID"
+  value       = var.create_hosted_zone ? aws_route53_zone.main[0].zone_id : (var.route53_zone_id != "" ? var.route53_zone_id : "Not configured")
+}
+
+output "route53_name_servers" {
+  description = "Route53 Name Servers (use these at your domain registrar if created new zone)"
+  value       = var.create_hosted_zone ? aws_route53_zone.main[0].name_servers : []
+}
+
+output "domain_setup_instructions" {
+  description = "Instructions for domain setup"
+  value = var.create_hosted_zone
+  }
